@@ -23,7 +23,7 @@ function parseOfxDate(dateString: string): Date {
 	const timezoneOffset = timezoneMatch ? parseInt(timezoneMatch[1], 10) : 0;
 
 	const year = parseInt(digits.substring(0, 4), 10);
-	const month = parseInt(digits.substring(4, 6), 10) - 1; // mês é 0-indexed
+	const month = parseInt(digits.substring(4, 6), 10) - 1;
 	const day = parseInt(digits.substring(6, 8), 10);
 	const hour = parseInt(digits.substring(8, 10), 10) || 0;
 	const minute = parseInt(digits.substring(10, 12), 10) || 0;
@@ -42,7 +42,7 @@ function extractEstablishmentName(description: string): string {
 
 	cleaned = cleaned
 		.replace(/^DEBITO\s+(CONVENIOS|CONTA)[-\s]*/i, "")
-		.replace(/ID\s+\d+\s+/i, ""); // Remove "ID 189995"
+		.replace(/ID\s+\d+\s+/i, "");
 
 	const match = cleaned.match(/^([A-Z0-9\s]+?)\s{2,}/);
 
@@ -55,17 +55,21 @@ function extractEstablishmentName(description: string): string {
 
 export async function parse(file: File): Promise<Transaction[]> {
 	const text = await file.text();
-	const parsed = await OfxParser(text);
+	const transactions: Transaction[] = [];
 
-	return (
-		parsed.OFX.BANKMSGSRSV1 as any
-	).STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN.map((t: any) => {
-		const transaction: Transaction = {
-			date: parseOfxDate(t.DTPOSTED),
-			description: extractEstablishmentName(t.MEMO || t.NAME),
-			amount: parseFloat(t.TRNAMT),
-		};
+	const transactionRegex =
+		/<STMTTRN>[\s\S]*?<TRNTYPE>(.*?)<\/TRNTYPE>[\s\S]*?<DTPOSTED>(.*?)<\/DTPOSTED>[\s\S]*?<TRNAMT>(.*?)<\/TRNAMT>[\s\S]*?<MEMO>(.*?)<\/MEMO>/gi;
 
-		return transaction;
-	});
+	let match;
+	while ((match = transactionRegex.exec(text)) !== null) {
+		const [, , dtposted, trnamt, memo] = match;
+
+		transactions.push({
+			date: parseOfxDate(dtposted),
+			description: extractEstablishmentName(memo),
+			amount: parseFloat(trnamt),
+		});
+	}
+
+	return transactions;
 }
