@@ -2,8 +2,8 @@ import Papa from "papaparse";
 import type { Transaction } from "../base";
 import { parseDataBR } from "../helpers";
 
-export const name = "nubank";
-export const description = "Nubank - Cartão de crédito";
+export const name = "nubank-debit";
+export const description = "Nubank - Conta corrente";
 export const extensions = [".csv"];
 export const aliasParser = (alias: string) => {
 	return alias.replace(/\s*-\s*Parcela\s*\d+\/\d+/i, "").trim();
@@ -24,23 +24,33 @@ export function aliasReplacer(
 	return parcelaSuffix ? `${alias} ${parcelaSuffix}` : alias;
 }
 
+function sanitizeDescription(description: string): string {
+	return description
+		.replace("Transferência enviada pelo Pix - ", "")
+		.replace("Transferência recebida pelo Pix - ", "")
+		.replace("Compra no débito - ", "")
+		.trim()
+		.substring(0, 70);
+}
+
 export async function parse(file: File): Promise<Transaction[]> {
 	return new Promise((resolve, reject) => {
 		Papa.parse(file, {
 			header: true,
 			complete: (result) => {
+				console.log(result);
 				const txs: Transaction[] = (result.data as any[]).reduce(
 					(acc, transaction) => {
-						if (!transaction["amount"]) return acc;
+						if (!transaction["Valor"]) return acc;
 
-						if (!transaction["amount"].includes("-")) {
-							acc.push({
-								date: parseDataBR(transaction["date"]),
-								description: transaction["title"],
-								amount: -parseFloat(transaction["amount"]),
-								category: "",
-							});
-						}
+						const description = sanitizeDescription(transaction["Descrição"]);
+
+						acc.push({
+							date: parseDataBR(transaction["Data"]),
+							description,
+							amount: parseFloat(transaction["Valor"]),
+							category: "",
+						});
 
 						return acc;
 					},
