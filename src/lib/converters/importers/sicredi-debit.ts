@@ -1,4 +1,3 @@
-import { parse as OfxParser } from "ofx-parser";
 import type { Transaction } from "../base";
 
 export const name = "sicredi-debit";
@@ -43,6 +42,25 @@ function extractEstablishmentName(description: string): string {
 	cleaned = cleaned
 		.replace(/^DEBITO\s+(CONVENIOS|CONTA)[-\s]*/i, "")
 		.replace(/ID\s+\d+\s+/i, "");
+
+	if (
+		cleaned.includes("RECEBIMENTO PIX SICREDI-") ||
+		cleaned.includes("RECEBIMENTO PIX-PIX_CRED") ||
+		cleaned.includes("PAGAMENTO PIX SICREDI-") ||
+		cleaned.includes("PAGAMENTO PIX-PIX_DEB")
+	) {
+		const stringToReplace = "PIX -";
+		return cleaned
+			.replace("RECEBIMENTO PIX SICREDI-", stringToReplace)
+			.replace("RECEBIMENTO PIX-PIX_CRED", stringToReplace)
+			.replace("PAGAMENTO PIX SICREDI-", stringToReplace)
+			.replace("PAGAMENTO PIX-PIX_DEB", stringToReplace)
+			.trim();
+	}
+
+	if (cleaned.includes("LIQUIDACAO BOLETO-")) {
+		return cleaned.replace("LIQUIDACAO BOLETO-", "Boleto -").trim();
+	}
 
 	const match = cleaned.match(/^([A-Z0-9\s]+?)\s{2,}/);
 
